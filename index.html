@@ -1329,6 +1329,13 @@ input[type=number]{-moz-appearance:textfield;}
   .sec{background:#FFFFFF !important;border:1px solid #ccc !important;}
 }
 
+
+/* Perfil móvel: reduz composição de blur no GPU ao rolar e troca de telas. */
+@media (max-width: 600px){
+  .orb-1,.orb-2{display:none!important;animation:none!important;}
+  *{backdrop-filter:none!important;-webkit-backdrop-filter:none!important;}
+  .bnav,.meta-pill,.voice-fab{background:var(--bg2)!important;}
+}
 </style>
 </head>
 <body>
@@ -3143,7 +3150,7 @@ function goPage(id, el){
   if(id==='despesas') renderDespesas();
   if(id==='graficos') renderGraficos();
   try{ if(history.replaceState) history.replaceState(null, '', '#'+id); }catch(e){}
-  window.scrollTo({top:0, behavior:'smooth'});
+  window.scrollTo({top:0, behavior:window.matchMedia('(max-width: 600px)').matches ? 'auto' : 'smooth'});
   setTimeout(updateMetaPill, 100);
 }
 function aplicarHash(){
@@ -6262,6 +6269,11 @@ function limparLembretesAntigos(){
 // ============================================================
 const _atuDashOriginal4 = atuDash;
 atuDash = function(){
+  // Evita calcular e remontar o painel escondido ao salvar dados em outra tela.
+  if(!document.getElementById('pg-dashboard')?.classList.contains('on')){
+    try{ if(typeof updateMetaPill === 'function') updateMetaPill(); }catch(e){}
+    return;
+  }
   _atuDashOriginal4.apply(this, arguments);
   try{ renderContasResumo(); }catch(e){}
   try{ renderLembretes(); }catch(e){}
