@@ -2797,9 +2797,9 @@ let _onSalvar = null;
 function salvar(){
   try{
     const json = JSON.stringify(S);
+    // setItem throws when persistence fails; a second full read only duplicates work.
     localStorage.setItem(KEY, json);
-    if(localStorage.getItem(KEY) === json){ piscaDot(true); }
-    else { piscaDot(false); console.warn('Falha ao verificar salvamento'); }
+    piscaDot(true);
     if(typeof _onSalvar === 'function'){
       try{ _onSalvar(); }catch(e){ console.warn('_onSalvar erro:', e); }
     }
@@ -3231,19 +3231,25 @@ function atuDash(){
   const mes = hj.getMonth(), ano = hj.getFullYear();
   const dim = new Date(ano,mes+1,0).getDate();
   const dia = hj.getDate();
-  let fat=0, dl=0;
+  let fat=0, dl=0, kmMes=0, tano=0;
   let plat = { uber:0, n99:0, ind:0, out:0 };
-  for(let d=1;d<=dia;d++){
-    const k=`${ano}-${p2(mes+1)}-${p2(d)}`;
-    if(S.lan[k]){
-      const lan = S.lan[k];
-      const v = +(lan.v||lan.valor||0);
-      fat += v; dl++;
-      plat.uber += +(lan.uber||0);
-      plat.n99  += +(lan.n99||0);
-      plat.ind  += +(lan.ind||0);
-      plat.out  += +(lan.out||0);
-    }
+  const anoPrefix = `${ano}-`;
+  const mesPrefix = `${ano}-${p2(mes+1)}-`;
+  for(const k in S.lan){
+    if(!Object.prototype.hasOwnProperty.call(S.lan, k)) continue;
+    const lan = S.lan[k];
+    if(!k.startsWith(anoPrefix)) continue;
+    tano += +(lan.v||lan.valor||0);
+    if(!k.startsWith(mesPrefix)) continue;
+    if(lan.km) kmMes += +lan.km;
+    // Keeps current-month revenue limited to today, as before.
+    if(Number(k.slice(8,10)) > dia) continue;
+    const v = +(lan.v||lan.valor||0);
+    fat += v; dl++;
+    plat.uber += +(lan.uber||0);
+    plat.n99  += +(lan.n99||0);
+    plat.ind  += +(lan.ind||0);
+    plat.out  += +(lan.out||0);
   }
   const flt = Math.max(0, META-fat);
   const pct = Math.min(100, (fat/META)*100);
@@ -3316,11 +3322,6 @@ function atuDash(){
   const maiorKm = Math.max(S.carKm||0, ...S.rec.map(r=>+r.km||0), ...S.man.map(m=>+m.km||0));
   document.getElementById('db-km').textContent     = maiorKm>0 ? maiorKm.toLocaleString('pt-BR')+' km' : '— km';
 
-  let kmMes=0;
-  for(const k in S.lan){
-    const d=new Date(k+'T00:00:00');
-    if(d.getMonth()===mes&&d.getFullYear()===ano && S.lan[k].km) kmMes+=+S.lan[k].km;
-  }
   const rkm = kmMes>0 ? cmes/kmMes : 0;
   document.getElementById('db-rkm').textContent     = rkm>0 ? 'R$ '+rkm.toFixed(2) : 'R$ 0,00';
   document.getElementById('db-rkm-sub').textContent = kmMes>0 ? `${kmMes} km no mês` : 'sem km registrados';
@@ -3330,8 +3331,6 @@ function atuDash(){
   document.getElementById('db-recm-sub').textContent = kwhMes.toFixed(1)+' kWh este mês';
 
   // Anual
-  let tano=0;
-  for(const k in S.lan){ const d=new Date(k+'T00:00:00'); if(d.getFullYear()===ano) tano+=+(S.lan[k].v||S.lan[k].valor||0); }
   const mp = mes+1;
   document.getElementById('db-ano').textContent = brl(tano);
   document.getElementById('db-mr').textContent  = 12-mes;
@@ -3406,8 +3405,9 @@ function renderCal(){
   let mm = 0; for(let d=1;d<=dim;d++) mm += mDia(new Date(ano,mes,d));
   document.getElementById('cal-m').textContent = 'Meta estimada: R$ '+mm.toLocaleString('pt-BR');
   document.getElementById('cal-dow').innerHTML = DS.map(d=>`<div class="cdow">${d}</div>`).join('');
-  const g = document.getElementById('cal-grid'); g.innerHTML = '';
-  for(let i=0;i<pd;i++) g.innerHTML += `<div class="cday vz"></div>`;
+  const g = document.getElementById('cal-grid');
+  const cells = [];
+  for(let i=0;i<pd;i++) cells.push('<div class="cday vz"></div>');
   for(let d=1;d<=dim;d++){
     const dt = new Date(ano,mes,d), k = toK(dt);
     const lan = S.lan[k], meta = mDia(dt);
@@ -3418,13 +3418,14 @@ function renderCal(){
     if(fer.length) cls += ' fe';
     if(lan && lan.v>=meta) cls += ' ac';
     else if(lan && lan.v<meta) cls += ' ab';
-    g.innerHTML += `<div class="${cls}" onclick="abrirDia('${k}')">
+    cells.push(`<div class="${cls}" onclick="abrirDia('${k}')">
       <span class="cn">${d}</span>
       <span class="cv2">${lan?'R$'+lan.v:''}</span>
       <span class="cm2">${lan?'':('R$'+meta)}</span>
       ${fer.length?`<div class="ftag">${fer[0].n.split(' ')[0]}</div>`:''}
-    </div>`;
+    </div>`);
   }
+  g.innerHTML = cells.join('');
   const cd = document.getElementById('cal-d'); if(cd && !cd.value) cd.value = toK(hj);
 }
 function chgMes(d){
