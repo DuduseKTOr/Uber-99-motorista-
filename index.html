@@ -4650,12 +4650,11 @@ carregar();
   const kma=document.getElementById('man-km-atual'); if(kma && S.carKm>0) kma.value=S.carKm;
 })();
 setGreeting();
-atuDash();
-stInfo();
-renderRecargas();
-renderManutencoes();
-renderDespesas();
-aplicarHash();
+// Renderiza só a tela inicial. As listas grandes ficam para quando forem abertas.
+const _initialRoute = location.hash.replace('#','');
+const _initialRoutes = ['dashboard','calendario','graficos','estrategia','recarga','manutencao','despesas','calc','feriados','voz','mais'];
+if(_initialRoutes.includes(_initialRoute)) goPage(_initialRoute);
+else goPage('dashboard');
 window.addEventListener('hashchange', aplicarHash);
 
 // Proteções
@@ -5448,7 +5447,8 @@ goPage = function(id, el){
 })();
 
 // ---------- INIT ----------
-renderMissionSlot();
+// O cartão de missão só precisa ser calculado quando o painel está visível.
+if(document.getElementById('pg-dashboard')?.classList.contains('on')) renderMissionSlot();
 // ============================================================
 // CRONÔMETRO DE TURNO + R$/HORA
 // ============================================================
@@ -6276,8 +6276,11 @@ goPage = function(id, el){
 
 // INIT
 limparLembretesAntigos();
-renderContasResumo();
-renderLembretes();
+renderTurnoPill();
+if(document.getElementById('pg-dashboard')?.classList.contains('on')){
+  renderContasResumo();
+  renderLembretes();
+}
 
 </script>
 </body>
